@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KDC 2026 Check-In</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap">
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+:root{
+  --bg:#f3f8f4; --surface:#ffffff; --surface-2:#e7f1ea; --fg:#14281c; --muted:#5a6e61; --line:#d3e3d8;
+  --green:#1a9a48; --green-ink:#ffffff; --orange:#f5a31f; --orange-ink:#3a2500; --purple:#52409a;
+  --ok-bg:#e2f5e8; --ok-fg:#13723a; --warn-bg:#fff2d9; --warn-fg:#8a5600; --bad-bg:#fde7e7; --bad-fg:#b42323;
+  --display:"Fredoka","Nunito",system-ui,sans-serif; --body:"Nunito",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.45;padding:0 16px}
+[hidden]{display:none!important}
+.wrap{max-width:1180px;margin:0 auto;padding:16px 0 32px;display:flex;flex-direction:column;gap:16px}
+header.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;justify-content:space-between}
+.brand{display:flex;align-items:center;gap:14px;min-width:0}
+.logo{background:#fff;border-radius:14px;padding:6px 10px;display:flex;border:1px solid var(--line)}
+.logo img{height:52px;width:auto}
+h1{font-family:var(--display);font-weight:700;font-size:1.5rem;line-height:1.1;margin:0}
+.brand p{margin:2px 0 0;color:var(--muted);font-size:.9rem}
+.tabs{display:flex;background:var(--surface-2);border-radius:999px;padding:4px;gap:4px}
+.tabs button{background:transparent;color:var(--muted);padding:8px 18px}
+.tabs button[aria-pressed="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 14px}
+.stat b{display:block;font-family:var(--display);font-size:1.8rem;line-height:1.1;font-variant-numeric:tabular-nums}
+.stat span{font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:800}
+.s1 b{color:var(--green)} .s2 b{color:var(--orange)} .s3 b{color:var(--purple)}
+.grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:820px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:18px;min-width:0}
+.panel h2{font-family:var(--display);font-weight:600;font-size:1.15rem;margin:0 0 10px}
+.lbl{font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:800}
+.scanbox{display:flex;gap:8px;margin-top:6px}
+.scanbox input{flex:1;min-width:0;font:600 1.25rem var(--mono);padding:14px 16px;border-radius:14px;border:3px solid var(--green);background:var(--bg);color:var(--fg)}
+.scanbox input:focus{outline:none;box-shadow:0 0 0 4px rgba(26,154,72,.25)}
+button{font-family:var(--display);font-weight:600;font-size:1rem;border:0;border-radius:999px;padding:12px 20px;cursor:pointer}
+button:focus-visible{outline:3px solid var(--orange);outline-offset:2px}
+button:disabled{opacity:.5;cursor:default}
+.btn-go{background:var(--green);color:var(--green-ink)} .btn-alt{background:var(--orange);color:var(--orange-ink)} .btn-ghost{background:var(--surface-2);color:var(--fg)}
+.btn-sm{padding:8px 14px;font-size:.9rem}
+.hint{color:var(--muted);font-size:.88rem;margin:8px 0 0}
+.result{margin-top:16px;border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:12px}
+.result.ok{background:var(--ok-bg)} .result.warn{background:var(--warn-bg)} .result.bad{background:var(--bad-bg)} .result.idle{background:var(--surface-2)}
+.status{font-family:var(--display);font-weight:700;font-size:1.1rem}
+.ok .status{color:var(--ok-fg)} .warn .status{color:var(--warn-fg)} .bad .status{color:var(--bad-fg)}
+.kid{font-family:var(--display);font-weight:700;font-size:2.2rem;line-height:1.05;overflow-wrap:anywhere}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 16px;margin:0}
+.facts dt{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:800}
+.facts dd{margin:0;font-weight:700;overflow-wrap:anywhere}
+.allergy{background:var(--bad-fg);color:#fff;border-radius:12px;padding:8px 12px;font-weight:800}
+.list{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
+.item{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:14px;background:var(--bg);border:1px solid var(--line)}
+.who{flex:1;min-width:0} .nm{font-weight:800;overflow-wrap:anywhere} .sub{color:var(--muted);font-size:.85rem}
+.pill{font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;padding:3px 8px;border-radius:999px;white-space:nowrap}
+.pill.wait{background:var(--warn-bg);color:var(--warn-fg)} .pill.done{background:var(--ok-bg);color:var(--ok-fg)} .pill.alg{background:var(--bad-bg);color:var(--bad-fg)}
+.badge-in{width:120px;font:600 .9rem var(--mono);padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--fg)}
+@media (max-width:520px){.item{flex-wrap:wrap}.badge-in{flex:1}}
+.search{width:100%;padding:10px 14px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font:inherit;margin-bottom:10px}
+.empty{color:var(--muted);text-align:center;padding:24px 8px}
+.banner{border-radius:14px;padding:12px 14px;font-weight:700;background:var(--bad-bg);color:var(--bad-fg)}
+.time{font-variant-numeric:tabular-nums}
+.cam-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+#reader{margin-top:12px;border-radius:14px;overflow:hidden;max-width:420px;border:3px solid var(--green)}
+#reader video{display:block;width:100%!important}
+.gate{max-width:380px;margin:12vh auto 0;text-align:center;display:flex;flex-direction:column;gap:14px;align-items:center}
+.gate input{font:700 1.6rem var(--mono);text-align:center;letter-spacing:.3em;width:200px;padding:12px;border-radius:14px;border:3px solid var(--green);background:var(--surface);color:var(--fg)}
+</style>
+</head>
+<body>
+
+<!-- PIN gate -->
+<form class="gate" id="gate" autocomplete="off">
+  <div class="logo"><img alt="Kids' Diwali" src="data:image/jpeg;base64,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"></div>
+  <h1>KDC 2026 Check-In</h1>
+  <label class="lbl" for="pin">Volunteer PIN</label>
+  <input id="pin" type="password" inputmode="numeric" autofocus>
+  <button class="btn-go" type="submit" id="pin-go">Open desk</button>
+  <div class="hint" id="pin-msg">Ask the KDC lead for the PIN.</div>
+</form>
+
+<div class="wrap" id="app" hidden>
+  <header class="top">
+    <div class="brand">
+      <div class="logo"><img alt="Kids' Diwali" src="" id="logo2"></div>
+      <div><h1>Jungle of Sheru Check-In</h1><p>Sat, Nov 28, 2026 · 1–7 PM · Salem mandir</p></div>
+    </div>
+    <nav class="tabs" aria-label="Desk">
+      <button type="button" id="tab-checkin" aria-pressed="true">Check-In Desk</button>
+      <button type="button" id="tab-ticketing" aria-pressed="false">Ticketing Desk</button>
+    </nav>
+  </header>
+
+  <div class="banner" id="banner" hidden></div>
+
+  <section class="stats">
+    <div class="stat s1"><b id="n-in">–</b><span>Kids checked in</span></div>
+    <div class="stat s2"><b id="n-wait">–</b><span>Waiting for ticketing</span></div>
+    <div class="stat s3"><b id="n-done">–</b><span>Added to ticketing</span></div>
+  </section>
+
+  <div class="grid" id="view-checkin">
+    <section class="panel">
+      <h2>Scan a registration QR</h2>
+      <form id="scan-form" autocomplete="off">
+        <label class="lbl" for="scan">QR code, registration ID, or name</label>
+        <div class="scanbox">
+          <input id="scan" placeholder="Scan now…">
+          <button class="btn-go" type="submit" id="scan-go">Check in</button>
+        </div>
+      </form>
+      <div class="cam-row"><button class="btn-alt" type="button" id="cam-btn">Scan with camera</button></div>
+      <div id="reader" hidden></div>
+      <p class="hint">Keep this box selected. The QR scanner types the code and presses Enter. No QR? Type the child's or parent's name and press Enter.</p>
+      <div class="result idle" id="result">
+        <div class="status">Ready for the next family</div>
+        <div class="hint" style="margin:0">Each scan checks one child in and sends them to the ticketing desk.</div>
+      </div>
+    </section>
+    <section class="panel">
+      <h2>Recently checked in</h2>
+      <ul class="list" id="recent"><li class="empty">Kids appear here as soon as they're scanned, on every device.</li></ul>
+    </section>
+  </div>
+
+  <div class="grid" id="view-ticketing" hidden>
+    <section class="panel">
+      <h2>Waiting to be added</h2>
+      <p class="hint" style="margin-top:0">Oldest first. Add each kid in the ticketing system, then tap Added. The badge number is optional.</p>
+      <ul class="list" id="queue" style="margin-top:12px"><li class="empty">No one is waiting. New check-ins show up here within a few seconds.</li></ul>
+    </section>
+    <section class="panel">
+      <h2>Already added</h2>
+      <input class="search" id="done-search" placeholder="Search by name" aria-label="Search added kids">
+      <ul class="list" id="done"><li class="empty">Nobody added yet.</li></ul>
+    </section>
+  </div>
+</div>
+
+<script>
+(function () {
+  try { document.getElementById("logo2").src = document.querySelector(".gate .logo img").src; } catch (e) {}
+  var $ = function (id) { return document.getElementById(id); };
+  var PIN = "", rows = [], busy = false, view = "checkin", pollTimer = null;
+
+  function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+  function tm(iso) { if (!iso) return ""; var d = new Date(iso); return isNaN(d) ? "" : d.toLocaleTimeString([], {hour: "numeric", minute: "2-digit"}); }
+  function hasAllergy(a) { return a && !/^(none|no|n\/?a|nope|-)$/i.test(String(a).trim()); }
+  function setResult(kind, html) { var r = $("result"); r.className = "result " + kind; r.innerHTML = html; }
+  function banner(msg) { $("banner").textContent = msg || ""; $("banner").hidden = !msg; }
+
+  /* Talks to the Google Sheet through the Apps Script web app */
+  var API = "https://script.google.com/macros/s/AKfycbx29gtG33gX3z-6jQT_-G4zDZy4NXWeYfM8ume6ENZK3Q__7u3avspcP8vF3yD9ZEmbgg/exec";
+  function call(fn) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    var names = { checkIn: ["code"], searchByName: ["q"], undoCheckIn: ["sid"], markAdded: ["sid", "badge"], moveBack: ["sid"] }[fn] || [];
+    var qs = "action=" + encodeURIComponent(fn) + "&pin=" + encodeURIComponent(PIN) + "&t=" + Date.now();
+    names.forEach(function (n, i) { qs += "&" + n + "=" + encodeURIComponent(args[i] == null ? "" : args[i]); });
+    return fetch(API + "?" + qs, { cache: "no-store" })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (res && res.ok) return res.data;
+        var err = new Error((res && res.error) || "ERROR");
+        if (/PIN/.test(err.message)) lockOut();
+        throw err;
+      });
+  }
+
+  /* ---------- PIN gate ---------- */
+  function lockOut() { store("kdcPin", ""); PIN = ""; clearInterval(pollTimer); $("app").hidden = true; $("gate").hidden = false; $("pin-msg").textContent = "That PIN didn't work. Ask the KDC lead for the current PIN."; }
+  function openDesk(pin) {
+    PIN = pin;
+    $("pin-go").disabled = true;
+    call("checkPin").then(function () {
+      store("kdcPin", pin);
+      $("gate").hidden = true; $("app").hidden = false;
+      show(store("kdcView") === "ticketing" ? "ticketing" : "checkin");
+      refresh(); pollTimer = setInterval(function () { if (!document.hidden) refresh(); }, 3000);
+    }).catch(function () {}).then(function () { $("pin-go").disabled = false; });
+  }
+  $("gate").addEventListener("submit", function (e) { e.preventDefault(); var p = $("pin").value.trim(); if (p) openDesk(p); });
+  var saved = store("kdcPin"); if (saved) openDesk(saved);
+
+  /* ---------- views ---------- */
+  function show(v) {
+    view = v; store("kdcView", v);
+    $("view-checkin").hidden = v !== "checkin"; $("view-ticketing").hidden = v !== "ticketing";
+    $("tab-checkin").setAttribute("aria-pressed", v === "checkin"); $("tab-ticketing").setAttribute("aria-pressed", v === "ticketing");
+    if (v === "checkin") setTimeout(function () { $("scan").focus(); }, 0);
+  }
+  $("tab-checkin").onclick = function () { show("checkin"); };
+  $("tab-ticketing").onclick = function () { stopCam(); show("ticketing"); };
+
+  /* ---------- live data ---------- */
+  var failures = 0;
+  function refresh() {
+    return call("getState").then(function (r) { rows = r || []; failures = 0; banner(); render(); })
+      .catch(function () { if (++failures >= 3) banner("Can't reach the check-in sheet. Check this device's internet connection."); });
+  }
+
+  function showChecked(r) {
+    setResult("ok", '<div class="status">Checked in · send to ticketing</div>' +
+      '<div class="kid">' + esc(r.first) + " " + esc(r.last) + "</div>" +
+      (hasAllergy(r.allergies) ? '<div class="allergy">Food allergy: ' + esc(r.allergies) + "</div>" : "") +
+      '<dl class="facts"><div><dt>Grade</dt><dd>' + esc(r.grade || "—") + "</dd></div>" +
+      "<div><dt>Parent</dt><dd>" + esc(r.parent || "—") + "</dd></div>" +
+      "<div><dt>Parent phone</dt><dd>" + esc(r.phone || "—") + "</dd></div>" +
+      "<div><dt>Emergency phone</dt><dd>" + esc(r.phone2 || "—") + "</dd></div></dl>" +
+      '<div><button class="btn-ghost btn-sm" type="button" data-undo="' + esc(r.sid) + '">Undo this check-in</button></div>');
+  }
+
+  function doCheckIn(code) {
+    if (busy) return;
+    busy = true; $("scan-go").disabled = true;
+    setResult("idle", '<div class="status">Looking up…</div>');
+    call("checkIn", code).then(function (res) {
+      if (res.result === "ok") { showChecked(res.rec); refresh(); }
+      else if (res.result === "duplicate") setResult("warn", '<div class="status">Already checked in at ' + esc(tm(res.rec.inAt)) + '</div><div class="kid">' + esc(res.rec.first) + " " + esc(res.rec.last) + "</div><div>This QR was scanned before. A sibling needs their own registration.</div>");
+      else if (res.result === "not_found") setResult("bad", '<div class="status">Registration not found</div><div>No registration has this code. New registrations can take up to a minute to reach the sheet, so try again shortly. Otherwise, search their name or send them to the walk-in sign.</div>');
+      else setResult("bad", '<div class="status">That isn\'t a KDC check-in code</div><div>Scan the QR from the thank-you page or email, or type the child\'s name.</div>');
+    }).catch(function (e) {
+      if (!/PIN/.test(e && e.message)) setResult("bad", '<div class="status">Couldn\'t check in</div><div>' + (/NOREG/.test(e && e.message) ? "The sheet has no Jotform registrations tab yet." : "Check the internet connection and scan again.") + "</div>");
+    }).then(function () { busy = false; $("scan-go").disabled = false; if (!cam) $("scan").focus(); });
+  }
+
+  function doSearch(q) {
+    setResult("idle", '<div class="status">Searching “' + esc(q) + '”…</div>');
+    call("searchByName", q).then(function (list) {
+      if (!list.length) { setResult("bad", '<div class="status">No registration matches “' + esc(q) + '”</div><div>Check the spelling, or send them to the walk-in sign to register.</div>'); return; }
+      setResult("idle", '<div class="status">Pick the child</div><ul class="list">' + list.map(function (r) {
+        return '<li class="item"><div class="who"><div class="nm">' + esc(r.first) + " " + esc(r.last) + '</div><div class="sub">' + esc(r.grade) + " · parent " + esc(r.parent) + "</div></div>" +
+          (r.checked ? '<span class="pill done">Checked in</span>' : '<button class="btn-go btn-sm" type="button" data-pick="' + esc(r.sid) + '">Check in</button>') + "</li>";
+      }).join("") + "</ul>");
+    }).catch(function (e) { if (!/PIN/.test(e && e.message)) setResult("bad", '<div class="status">Search failed</div><div>Check the internet connection and try again.</div>'); });
+  }
+
+  $("scan-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var v = $("scan").value.trim(); $("scan").value = "";
+    if (!v) return;
+    var digits = (v.match(/\d{12,22}/) || [])[0];
+    if (digits) doCheckIn(digits); else if (/[a-z]/i.test(v)) doSearch(v); else doCheckIn(v);
+  });
+
+  /* ---------- camera scanning ---------- */
+  var cam = null, lastCode = "", lastAt = 0;
+  function startCam() {
+    if (typeof Html5Qrcode === "undefined") { setResult("bad", '<div class="status">The camera scanner didn\'t load</div><div>Check the internet connection and reload the page.</div>'); return; }
+    $("reader").hidden = false; $("cam-btn").textContent = "Stop camera";
+    cam = new Html5Qrcode("reader");
+    cam.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 230, height: 230 } }, function (text) {
+      var now = Date.now();
+      if (text === lastCode && now - lastAt < 5000) return; // ignore the same QR held in view
+      lastCode = text; lastAt = now;
+      var d = (String(text).match(/\d{12,22}/) || [])[0];
+      if (d) doCheckIn(d);
+      else setResult("bad", '<div class="status">That isn\'t a KDC check-in code</div><div>Scan the QR from the thank-you page or confirmation email.</div>');
+    }).catch(function () {
+      stopCam();
+      setResult("bad", '<div class="status">Couldn\'t open the camera</div><div>Allow camera access for this page in the browser settings, then tap Scan with camera again. You can still type a name or use a USB scanner.</div>');
+    });
+  }
+  function stopCam() {
+    var c = cam; cam = null;
+    if (c) c.stop().catch(function () {}).then(function () { try { c.clear(); } catch (e) {} });
+    $("reader").hidden = true; $("cam-btn").textContent = "Scan with camera";
+  }
+  $("cam-btn").addEventListener("click", function () { if (cam) stopCam(); else startCam(); });
+
+  /* ---------- buttons ---------- */
+  function arm(btn, label, reset) {
+    if (btn.getAttribute("data-armed") === "1") return true;
+    btn.setAttribute("data-armed", "1"); btn.textContent = label;
+    setTimeout(function () { if (btn.isConnected) { btn.removeAttribute("data-armed"); btn.textContent = reset; } }, 4000);
+    return false;
+  }
+  document.addEventListener("click", function (e) {
+    var t = e.target.closest ? e.target.closest("button") : null;
+    if (!t) { if (view === "checkin" && !cam && !(e.target.closest && e.target.closest("input"))) $("scan").focus(); return; }
+    if (t.hasAttribute("data-pick")) { doCheckIn(t.getAttribute("data-pick")); return; }
+    if (t.hasAttribute("data-undo")) {
+      if (!arm(t, "Tap again to undo", "Undo this check-in")) return;
+      t.disabled = true;
+      call("undoCheckIn", t.getAttribute("data-undo")).then(function () { setResult("idle", '<div class="status">Check-in undone</div>'); refresh(); })
+        .catch(function () { t.disabled = false; }).then(function () { $("scan").focus(); });
+      return;
+    }
+    if (t.hasAttribute("data-add")) {
+      var id = t.getAttribute("data-add"), inp = document.querySelector('.badge-in[data-id="' + id + '"]');
+      t.disabled = true;
+      call("markAdded", id, inp ? inp.value.trim() : "").then(refresh).catch(function () { t.disabled = false; banner("Couldn't mark that kid as added. Try again."); });
+      return;
+    }
+    if (t.hasAttribute("data-back")) {
+      if (!arm(t, "Tap to confirm", "Move back")) return;
+      t.disabled = true;
+      call("moveBack", t.getAttribute("data-back")).then(refresh).catch(function () { t.disabled = false; });
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && e.target.classList && e.target.classList.contains("badge-in")) {
+      e.preventDefault(); var b = document.querySelector('[data-add="' + e.target.getAttribute("data-id") + '"]'); if (b) b.click();
+    }
+  });
+  $("done-search").addEventListener("input", render);
+
+  /* ---------- render ---------- */
+  function render() {
+    var waiting = rows.filter(function (r) { return r.status !== "Added to ticketing"; }).sort(function (a, b) { return a.inAt.localeCompare(b.inAt); });
+    var done = rows.filter(function (r) { return r.status === "Added to ticketing"; }).sort(function (a, b) { return b.addedAt.localeCompare(a.addedAt); });
+    $("n-in").textContent = rows.length; $("n-wait").textContent = waiting.length; $("n-done").textContent = done.length;
+
+    var recent = rows.slice().sort(function (a, b) { return b.inAt.localeCompare(a.inAt); }).slice(0, 12);
+    $("recent").innerHTML = recent.length ? recent.map(function (r) {
+      var added = r.status === "Added to ticketing";
+      return '<li class="item"><div class="who"><div class="nm">' + esc(r.first) + " " + esc(r.last) + '</div><div class="sub"><span class="time">' + esc(tm(r.inAt)) + "</span> · " + esc(r.grade) + "</div></div>" +
+        (hasAllergy(r.allergies) ? '<span class="pill alg">Allergy</span>' : "") +
+        '<span class="pill ' + (added ? "done" : "wait") + '">' + (added ? "In ticketing" : "Waiting") + "</span></li>";
+    }).join("") : '<li class="empty">Kids appear here as soon as they\'re scanned, on every device.</li>';
+
+    // keep anything a volunteer is typing in a badge box across refreshes
+    var typed = {}, focused = document.activeElement && document.activeElement.classList.contains("badge-in") ? document.activeElement.getAttribute("data-id") : null;
+    Array.prototype.forEach.call(document.querySelectorAll(".badge-in"), function (i) { if (i.value) typed[i.getAttribute("data-id")] = i.value; });
+    $("queue").innerHTML = waiting.length ? waiting.map(function (r) {
+      return '<li class="item"><div class="who"><div class="nm">' + esc(r.first) + " " + esc(r.last) + '</div><div class="sub">' + esc(r.grade) + ' · checked in <span class="time">' + esc(tm(r.inAt)) + "</span>" +
+        (hasAllergy(r.allergies) ? " · <b>Allergy: " + esc(r.allergies) + "</b>" : "") + "</div></div>" +
+        '<input class="badge-in" data-id="' + esc(r.sid) + '" placeholder="Badge #" aria-label="Badge number for ' + esc(r.first) + '">' +
+        '<button class="btn-alt btn-sm" type="button" data-add="' + esc(r.sid) + '">Added</button></li>';
+    }).join("") : '<li class="empty">No one is waiting. New check-ins show up here within a few seconds.</li>';
+    Array.prototype.forEach.call(document.querySelectorAll(".badge-in"), function (i) {
+      var id = i.getAttribute("data-id"); if (typed[id]) i.value = typed[id]; if (id === focused) i.focus();
+    });
+
+    var q = $("done-search").value.trim().toLowerCase();
+    var shown = done.filter(function (r) { return !q || (r.first + " " + r.last).toLowerCase().indexOf(q) >= 0; });
+    $("done").innerHTML = shown.length ? shown.map(function (r) {
+      return '<li class="item"><div class="who"><div class="nm">' + esc(r.first) + " " + esc(r.last) + '</div><div class="sub">Added <span class="time">' + esc(tm(r.addedAt)) + "</span>" + (r.badge ? " · badge " + esc(r.badge) : "") + "</div></div>" +
+        '<button class="btn-ghost btn-sm" type="button" data-back="' + esc(r.sid) + '">Move back</button></li>';
+    }).join("") : '<li class="empty">' + (q ? "No added kids match that name." : "Nobody added yet.") + "</li>";
+  }
+})();
+</script>
+</body>
+</html>
