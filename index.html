@@ -263,7 +263,7 @@ button:disabled{opacity:.5;cursor:default}
       rows.forEach(function (x) { if (x.sid === sid) x.guess = g; });
       var row = btn.parentNode, old = row.querySelector(".saved"); if (old) old.remove();
       if (g) { var sp = document.createElement("span"); sp.className = "saved"; sp.textContent = "Saved: " + g; row.appendChild(sp); }
-      banner(); render();
+      inp.blur(); candySig = ""; banner(); render();
       if (view === "checkin" && !cam) $("scan").focus();
     }).catch(function (e) { if (!/PIN/.test(e && e.message)) banner("Couldn't save that guess. Try again."); })
       .then(function () { btn.disabled = false; });
@@ -272,6 +272,7 @@ button:disabled{opacity:.5;cursor:default}
   try { $("candy-count").value = store("kdcCandy") || ""; } catch (e) {}
   $("candy-count").addEventListener("input", function () { store("kdcCandy", $("candy-count").value); render(); });
   $("candy-search").addEventListener("input", render);
+  var candySig = "";
   function renderCandy() {
     var guessed = rows.filter(function (r) { return r.guess !== "" && r.guess != null; });
     var actual = readCount();
@@ -287,8 +288,13 @@ button:disabled{opacity:.5;cursor:default}
         (actual != null ? " · " + (x.d === 0 ? "exactly right" : "off by " + x.d) : "") + (win ? " · <b>Winner</b>" : "") + "</div></div>" +
         '<span class="gnum">' + esc(x.r.guess) + "</span></li>";
     }).join("") : '<li class="empty">No guesses yet.</li>';
-    // keep anything being typed in the guess boxes across refreshes
-    var typed = {}, act = document.activeElement, focused = act && act.classList && act.classList.contains("guess-in") && $("candy-list").contains(act) ? act.getAttribute("data-gid") : null;
+    // only redraw the guess list when something changed, and never while a volunteer is typing in it
+    var act = document.activeElement;
+    var typing = act && act.classList && act.classList.contains("guess-in") && $("candy-list").contains(act);
+    var sig = $("candy-search").value + "|" + rows.map(function (r) { return r.sid + ":" + r.guess; }).join(",");
+    if (typing || sig === candySig) return;
+    candySig = sig;
+    var typed = {}, focused = null;
     Array.prototype.forEach.call($("candy-list").querySelectorAll(".guess-in"), function (i) { if (i.value !== i.defaultValue) typed[i.getAttribute("data-gid")] = i.value; });
     var q = $("candy-search").value.trim().toLowerCase();
     var kids = rows.filter(function (r) { return !q || (r.first + " " + r.last).toLowerCase().indexOf(q) >= 0; })
