@@ -185,7 +185,7 @@ button:disabled{opacity:.5;cursor:default}
   var API = "https://script.google.com/macros/s/AKfycbx29gtG33gX3z-6jQT_-G4zDZy4NXWeYfM8ume6ENZK3Q__7u3avspcP8vF3yD9ZEmbgg/exec";
   function call(fn) {
     var args = Array.prototype.slice.call(arguments, 1);
-    var names = { checkIn: ["code"], searchByName: ["q"], undoCheckIn: ["sid"], markAdded: ["sid", "badge"], moveBack: ["sid"], setGuess: ["sid", "guess"] }[fn] || [];
+    var names = { checkIn: ["code"], searchByName: ["q"], undoCheckIn: ["rid"], markAdded: ["rid", "badge"], moveBack: ["rid"], setGuess: ["rid", "guess"] }[fn] || [];
     var qs = "action=" + encodeURIComponent(fn) + "&pin=" + encodeURIComponent(PIN) + "&t=" + Date.now();
     names.forEach(function (n, i) { qs += "&" + n + "=" + encodeURIComponent(args[i] == null ? "" : args[i]); });
     return fetch(API + "?" + qs, { cache: "no-store" })
