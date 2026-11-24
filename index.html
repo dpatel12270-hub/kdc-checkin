@@ -69,6 +69,14 @@ button:disabled{opacity:.5;cursor:default}
 .cam-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 #reader{margin-top:12px;border-radius:14px;overflow:hidden;max-width:420px;border:3px solid var(--green)}
 #reader video{display:block;width:100%!important}
+.guess{display:flex;flex-direction:column;gap:6px}
+.guess-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.guess-in{width:130px;font:700 1.1rem var(--mono);padding:9px 12px;border-radius:12px;border:2px solid var(--orange);background:var(--surface);color:var(--fg)}
+.saved{color:var(--ok-fg);font-weight:800;font-size:.85rem}
+.count-in{width:160px;font:700 1.4rem var(--mono);padding:10px 14px;border-radius:14px;border:3px solid var(--purple);background:var(--surface);color:var(--fg)}
+.rank{font-family:var(--display);font-weight:700;font-size:1.2rem;width:2ch;text-align:center;color:var(--purple)}
+.item.win{background:var(--ok-bg);border-color:var(--ok-fg)}
+.gnum{font:700 1.1rem var(--mono);white-space:nowrap}
 .gate{max-width:380px;margin:12vh auto 0;text-align:center;display:flex;flex-direction:column;gap:14px;align-items:center}
 .gate input{font:700 1.6rem var(--mono);text-align:center;letter-spacing:.3em;width:200px;padding:12px;border-radius:14px;border:3px solid var(--green);background:var(--surface);color:var(--fg)}
 </style>
@@ -94,6 +102,7 @@ button:disabled{opacity:.5;cursor:default}
     <nav class="tabs" aria-label="Desk">
       <button type="button" id="tab-checkin" aria-pressed="true">Check-In Desk</button>
       <button type="button" id="tab-ticketing" aria-pressed="false">Ticketing Desk</button>
+      <button type="button" id="tab-candy" aria-pressed="false">Candy Jar</button>
     </nav>
   </header>
 
@@ -141,6 +150,22 @@ button:disabled{opacity:.5;cursor:default}
       <ul class="list" id="done"><li class="empty">Nobody added yet.</li></ul>
     </section>
   </div>
+
+  <div class="grid" id="view-candy" hidden>
+    <section class="panel">
+      <h2>How many candies are in the jar?</h2>
+      <p class="hint" style="margin-top:0">Whoever guesses closest wins the jar. Type the real count to see the winner.</p>
+      <label class="lbl" for="candy-count">Real number of candies</label>
+      <div style="margin:6px 0 14px"><input class="count-in" id="candy-count" inputmode="numeric" placeholder="e.g. 250" autocomplete="off"></div>
+      <div class="hint" id="candy-summary" style="margin:0 0 10px"></div>
+      <ul class="list" id="candy-board"><li class="empty">No guesses yet.</li></ul>
+    </section>
+    <section class="panel">
+      <h2>Add or fix a guess</h2>
+      <input class="search" id="candy-search" placeholder="Search checked-in kids by name" aria-label="Search checked-in kids">
+      <ul class="list" id="candy-list"><li class="empty">Kids show up here once they're checked in.</li></ul>
+    </section>
+  </div>
 </div>
 
 <script>
@@ -160,7 +185,7 @@ button:disabled{opacity:.5;cursor:default}
   var API = "https://script.google.com/macros/s/AKfycbx29gtG33gX3z-6jQT_-G4zDZy4NXWeYfM8ume6ENZK3Q__7u3avspcP8vF3yD9ZEmbgg/exec";
   function call(fn) {
     var args = Array.prototype.slice.call(arguments, 1);
-    var names = { checkIn: ["code"], searchByName: ["q"], undoCheckIn: ["sid"], markAdded: ["sid", "badge"], moveBack: ["sid"] }[fn] || [];
+    var names = { checkIn: ["code"], searchByName: ["q"], undoCheckIn: ["sid"], markAdded: ["sid", "badge"], moveBack: ["sid"], setGuess: ["sid", "guess"] }[fn] || [];
     var qs = "action=" + encodeURIComponent(fn) + "&pin=" + encodeURIComponent(PIN) + "&t=" + Date.now();
     names.forEach(function (n, i) { qs += "&" + n + "=" + encodeURIComponent(args[i] == null ? "" : args[i]); });
     return fetch(API + "?" + qs, { cache: "no-store" })
@@ -181,7 +206,7 @@ button:disabled{opacity:.5;cursor:default}
     call("checkPin").then(function () {
       store("kdcPin", pin);
       $("gate").hidden = true; $("app").hidden = false;
-      show(store("kdcView") === "ticketing" ? "ticketing" : "checkin");
+      show(/^(ticketing|candy)$/.test(store("kdcView") || "") ? store("kdcView") : "checkin");
       refresh(); pollTimer = setInterval(function () { if (!document.hidden) refresh(); }, 3000);
     }).catch(function () {}).then(function () { $("pin-go").disabled = false; });
   }
@@ -191,12 +216,14 @@ button:disabled{opacity:.5;cursor:default}
   /* ---------- views ---------- */
   function show(v) {
     view = v; store("kdcView", v);
-    $("view-checkin").hidden = v !== "checkin"; $("view-ticketing").hidden = v !== "ticketing";
-    $("tab-checkin").setAttribute("aria-pressed", v === "checkin"); $("tab-ticketing").setAttribute("aria-pressed", v === "ticketing");
+    ["checkin", "ticketing", "candy"].forEach(function (k) {
+      $("view-" + k).hidden = v !== k; $("tab-" + k).setAttribute("aria-pressed", v === k);
+    });
     if (v === "checkin") setTimeout(function () { $("scan").focus(); }, 0);
   }
   $("tab-checkin").onclick = function () { show("checkin"); };
   $("tab-ticketing").onclick = function () { stopCam(); show("ticketing"); };
+  $("tab-candy").onclick = function () { stopCam(); show("candy"); };
 
   /* ---------- live data ---------- */
   var failures = 0;
@@ -213,7 +240,65 @@ button:disabled{opacity:.5;cursor:default}
       "<div><dt>Parent</dt><dd>" + esc(r.parent || "—") + "</dd></div>" +
       "<div><dt>Parent phone</dt><dd>" + esc(r.phone || "—") + "</dd></div>" +
       "<div><dt>Emergency phone</dt><dd>" + esc(r.phone2 || "—") + "</dd></div></dl>" +
+      guessBox(r) +
       '<div><button class="btn-ghost btn-sm" type="button" data-undo="' + esc(r.sid) + '">Undo this check-in</button></div>');
+  }
+
+  /* ---------- candy jar ---------- */
+  function guessBox(r) {
+    return '<div class="guess"><span class="lbl">Candy jar guess (optional)</span><div class="guess-row">' +
+      '<input class="guess-in" aria-label="Candy jar guess for ' + esc(r.first) + '" data-gid="' + esc(r.sid) + '" inputmode="numeric" autocomplete="off" placeholder="How many?" value="' + esc(r.guess || "") + '">' +
+      '<button class="btn-alt btn-sm" type="button" data-guess="' + esc(r.sid) + '">Save guess</button>' +
+      (r.guess !== "" && r.guess != null ? '<span class="saved">Saved: ' + esc(r.guess) + "</span>" : "") + "</div></div>";
+  }
+  function saveGuess(sid, btn) {
+    var inp = btn.parentNode.querySelector(".guess-in"); if (!inp) return;
+    var raw = inp.value.trim();
+    // a QR scanned into this box by mistake: treat it as a check-in instead
+    if (/\d{12,}/.test(raw)) { inp.value = ""; doCheckIn(raw.match(/\d{12,22}/)[0]); return; }
+    var g = raw.replace(/[^0-9]/g, "");
+    if (raw && !g) { banner("A guess has to be a number."); return; }
+    btn.disabled = true;
+    call("setGuess", sid, g).then(function () {
+      rows.forEach(function (x) { if (x.sid === sid) x.guess = g; });
+      var row = btn.parentNode, old = row.querySelector(".saved"); if (old) old.remove();
+      if (g) { var sp = document.createElement("span"); sp.className = "saved"; sp.textContent = "Saved: " + g; row.appendChild(sp); }
+      banner(); render();
+      if (view === "checkin" && !cam) $("scan").focus();
+    }).catch(function (e) { if (!/PIN/.test(e && e.message)) banner("Couldn't save that guess. Try again."); })
+      .then(function () { btn.disabled = false; });
+  }
+  function readCount() { var c = String($("candy-count").value).replace(/[^0-9]/g, ""); return c === "" ? null : Number(c); }
+  try { $("candy-count").value = store("kdcCandy") || ""; } catch (e) {}
+  $("candy-count").addEventListener("input", function () { store("kdcCandy", $("candy-count").value); render(); });
+  $("candy-search").addEventListener("input", render);
+  function renderCandy() {
+    var guessed = rows.filter(function (r) { return r.guess !== "" && r.guess != null; });
+    var actual = readCount();
+    $("candy-summary").textContent = guessed.length + " of " + rows.length + " checked-in kids have guessed." +
+      (actual == null ? " Showing all guesses, highest first." : " Closest to " + actual + " first.");
+    var list = guessed.map(function (r) { return { r: r, g: Number(r.guess), d: actual == null ? 0 : Math.abs(Number(r.guess) - actual) }; });
+    list.sort(function (a, b) { return actual == null ? b.g - a.g : a.d - b.d || a.r.inAt.localeCompare(b.r.inAt); });
+    var best = list.length && actual != null ? list[0].d : -1;
+    $("candy-board").innerHTML = list.length ? list.slice(0, actual == null ? 200 : 15).map(function (x, i) {
+      var win = actual != null && x.d === best;
+      return '<li class="item' + (win ? " win" : "") + '">' + (actual != null ? '<span class="rank">' + (i + 1) + "</span>" : "") +
+        '<div class="who"><div class="nm">' + esc(x.r.first) + " " + esc(x.r.last) + '</div><div class="sub">' + esc(x.r.grade) +
+        (actual != null ? " · " + (x.d === 0 ? "exactly right" : "off by " + x.d) : "") + (win ? " · <b>Winner</b>" : "") + "</div></div>" +
+        '<span class="gnum">' + esc(x.r.guess) + "</span></li>";
+    }).join("") : '<li class="empty">No guesses yet.</li>';
+    // keep anything being typed in the guess boxes across refreshes
+    var typed = {}, act = document.activeElement, focused = act && act.classList && act.classList.contains("guess-in") && $("candy-list").contains(act) ? act.getAttribute("data-gid") : null;
+    Array.prototype.forEach.call($("candy-list").querySelectorAll(".guess-in"), function (i) { if (i.value !== i.defaultValue) typed[i.getAttribute("data-gid")] = i.value; });
+    var q = $("candy-search").value.trim().toLowerCase();
+    var kids = rows.filter(function (r) { return !q || (r.first + " " + r.last).toLowerCase().indexOf(q) >= 0; })
+      .sort(function (a, b) { return (a.first + a.last).localeCompare(b.first + b.last); });
+    $("candy-list").innerHTML = kids.length ? kids.map(function (r) {
+      return '<li class="item" style="flex-wrap:wrap"><div class="who"><div class="nm">' + esc(r.first) + " " + esc(r.last) + '</div><div class="sub">' + esc(r.grade) + "</div></div>" + guessBox(r) + "</li>";
+    }).join("") : '<li class="empty">' + (q ? "No checked-in kid matches that name." : "Kids show up here once they're checked in.") + "</li>";
+    Array.prototype.forEach.call($("candy-list").querySelectorAll(".guess-in"), function (i) {
+      var id = i.getAttribute("data-gid"); if (id in typed) i.value = typed[id]; if (id === focused) i.focus();
+    });
   }
 
   function doCheckIn(code) {
@@ -222,7 +307,7 @@ button:disabled{opacity:.5;cursor:default}
     setResult("idle", '<div class="status">Looking up…</div>');
     call("checkIn", code).then(function (res) {
       if (res.result === "ok") { showChecked(res.rec); refresh(); }
-      else if (res.result === "duplicate") setResult("warn", '<div class="status">Already checked in at ' + esc(tm(res.rec.inAt)) + '</div><div class="kid">' + esc(res.rec.first) + " " + esc(res.rec.last) + "</div><div>This QR was scanned before. A sibling needs their own registration.</div>");
+      else if (res.result === "duplicate") setResult("warn", '<div class="status">Already checked in at ' + esc(tm(res.rec.inAt)) + '</div><div class="kid">' + esc(res.rec.first) + " " + esc(res.rec.last) + "</div><div>This QR was scanned before. A sibling needs their own registration.</div>" + guessBox(res.rec));
       else if (res.result === "not_found") setResult("bad", '<div class="status">Registration not found</div><div>No registration has this code. New registrations can take up to a minute to reach the sheet, so try again shortly. Otherwise, search their name or send them to the walk-in sign.</div>');
       else setResult("bad", '<div class="status">That isn\'t a KDC check-in code</div><div>Scan the QR from the thank-you page or email, or type the child\'s name.</div>');
     }).catch(function (e) {
@@ -285,6 +370,7 @@ button:disabled{opacity:.5;cursor:default}
     var t = e.target.closest ? e.target.closest("button") : null;
     if (!t) { if (view === "checkin" && !cam && !(e.target.closest && e.target.closest("input"))) $("scan").focus(); return; }
     if (t.hasAttribute("data-pick")) { doCheckIn(t.getAttribute("data-pick")); return; }
+    if (t.hasAttribute("data-guess")) { saveGuess(t.getAttribute("data-guess"), t); return; }
     if (t.hasAttribute("data-undo")) {
       if (!arm(t, "Tap again to undo", "Undo this check-in")) return;
       t.disabled = true;
@@ -305,6 +391,9 @@ button:disabled{opacity:.5;cursor:default}
     }
   });
   document.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && e.target.classList && e.target.classList.contains("guess-in")) {
+      e.preventDefault(); var gb = e.target.parentNode.querySelector("[data-guess]"); if (gb) gb.click(); return;
+    }
     if (e.key === "Enter" && e.target.classList && e.target.classList.contains("badge-in")) {
       e.preventDefault(); var b = document.querySelector('[data-add="' + e.target.getAttribute("data-id") + '"]'); if (b) b.click();
     }
@@ -313,6 +402,7 @@ button:disabled{opacity:.5;cursor:default}
 
   /* ---------- render ---------- */
   function render() {
+    renderCandy();
     var waiting = rows.filter(function (r) { return r.status !== "Added to ticketing"; }).sort(function (a, b) { return a.inAt.localeCompare(b.inAt); });
     var done = rows.filter(function (r) { return r.status === "Added to ticketing"; }).sort(function (a, b) { return b.addedAt.localeCompare(a.addedAt); });
     $("n-in").textContent = rows.length; $("n-wait").textContent = waiting.length; $("n-done").textContent = done.length;
